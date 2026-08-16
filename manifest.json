@@ -1,7 +1,7 @@
 {
   "name": "Tikendra Cashbook",
   "short_name": "Cashbook",
-  "description": "Tikendra Cashbook - Simple cashbook and daily business expense management app",
+  "description": "Personal offline cashbook for IN and OUT transactions.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
