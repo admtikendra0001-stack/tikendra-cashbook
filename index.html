@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1261b0">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Tikendra Cashbook</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#17202a}
+header{background:#1261b0;color:white;padding:18px 16px;font-size:21px;font-weight:700}
+main{padding:14px;max-width:650px;margin:auto}.card{background:white;border-radius:18px;padding:18px;box-shadow:0 2px 10px #00000012;margin-bottom:14px}
+.balance{text-align:center;font-size:30px;font-weight:800}.muted{color:#77808a;text-align:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.mini{padding:12px;background:#f6f8fb;border-radius:12px;text-align:center}.mini b{display:block;font-size:18px;margin-top:4px}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px;position:sticky;bottom:10px}.btn{border:0;color:white;padding:16px;border-radius:14px;font-size:18px;font-weight:700}.in{background:#159447}.out{background:#d93636}
+.item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #eee}.dot{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#eef3f8}.item .grow{flex:1}.amount{font-weight:700}.green{color:#159447}.red{color:#d93636}
+input,select{width:100%;padding:13px;margin:6px 0;border:1px solid #d7dce2;border-radius:10px;font-size:16px}dialog{border:0;border-radius:18px;width:min(94%,430px);padding:20px}dialog::backdrop{background:#0008}.save{width:100%;background:#1261b0;color:white;border:0;padding:14px;border-radius:10px;font-weight:700;font-size:16px}.close{width:100%;margin-top:8px;padding:12px;border:0;background:#eee;border-radius:10px}
+.small{font-size:13px;color:#777}.danger{border:0;background:none;color:#d33}
+</style>
+</head>
+<body>
+<header>💰 Tikendra Cashbook</header>
+<main>
+<section class="card">
+  <div class="balance" id="balance">₹0.00</div><div class="muted">Total Balance</div>
+  <div class="grid">
+    <div class="mini">Cash in Hand<b id="cash">₹0.00</b></div>
+    <div class="mini">Online<b id="online">₹0.00</b></div>
+    <div class="mini">Today IN<b class="green" id="todayIn">₹0.00</b></div>
+    <div class="mini">Today OUT<b class="red" id="todayOut">₹0.00</b></div>
+  </div>
+</section>
+<section class="card">
+  <b style="font-size:18px">Recent Transactions</b>
+  <div id="list" class="small" style="margin-top:8px">No transactions yet.</div>
+</section>
+<section class="buttons">
+  <button class="btn out" onclick="openForm('OUT')">− OUT</button>
+  <button class="btn in" onclick="openForm('IN')">＋ IN</button>
+</section>
+</main>
+
+<dialog id="dlg">
+<h2 id="formTitle">Add Income</h2>
+<input id="desc" placeholder="Description">
+<input id="amount" type="number" inputmode="decimal" placeholder="Amount (₹)">
+<select id="mode"><option>Cash</option><option>Online</option></select>
+<select id="cat"><option>General</option><option>CSC Service</option><option>Insurance</option><option>Bill Payment</option><option>Banking</option><option>Travel</option><option>Food</option><option>Office</option><option>Other</option></select>
+<input id="date" type="date">
+<button class="save" onclick="saveTx()">Save Transaction</button>
+<button class="close" onclick="dlg.close()">Cancel</button>
+</dialog>
+
+<script>
+let tx=JSON.parse(localStorage.getItem('tikendra_cashbook')||'[]'), currentType='IN';
+const money=n=>'₹'+Number(n).toFixed(2);
+function today(){return new Date().toISOString().slice(0,10)}
+function sum(type,mode){return tx.filter(x=>x.type===type&&(!mode||x.mode===mode)).reduce((a,x)=>a+x.amount,0)}
+function refresh(){
+ let tin=sum('IN'), tout=sum('OUT');
+ document.getElementById('balance').textContent=money(tin-tout);
+ document.getElementById('cash').textContent=money(sum('IN','Cash')-sum('OUT','Cash'));
+ document.getElementById('online').textContent=money(sum('IN','Online')-sum('OUT','Online'));
+ document.getElementById('todayIn').textContent=money(tx.filter(x=>x.type==='IN'&&x.date===today()).reduce((a,x)=>a+x.amount,0));
+ document.getElementById('todayOut').textContent=money(tx.filter(x=>x.type==='OUT'&&x.date===today()).reduce((a,x)=>a+x.amount,0));
+ let list=document.getElementById('list');
+ if(!tx.length){list.textContent='No transactions yet.';return}
+ list.innerHTML=tx.slice().reverse().slice(0,50).map((x,i)=>`<div class="item"><div class="dot">${x.type==='IN'?'＋':'−'}</div><div class="grow"><b>${esc(x.desc)}</b><br><span class="small">${esc(x.cat)} • ${x.mode} • ${x.date}</span></div><span class="amount ${x.type==='IN'?'green':'red'}">${x.type==='IN'?'+':'−'}${money(x.amount)}</span><button class="danger" onclick="del(${tx.length-1-i})">🗑</button></div>`).join('');
+}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function openForm(type){currentType=type;formTitle.textContent=type==='IN'?'Add Income':'Add Expense';desc.value='';amount.value='';mode.value='Cash';cat.value='General';date.value=today();dlg.showModal()}
+function saveTx(){
+ let d=desc.value.trim(), a=parseFloat(amount.value);
+ if(!d||!a||a<=0){alert('Enter description and a valid amount.');return}
+ tx.push({type:currentType,desc:d,amount:a,mode:mode.value,cat:cat.value,date:date.value||today()});
+ localStorage.setItem('tikendra_cashbook',JSON.stringify(tx));dlg.close();refresh()
+}
+function del(i){if(confirm('Delete this transaction?')){tx.splice(i,1);localStorage.setItem('tikendra_cashbook',JSON.stringify(tx));refresh()}}
+refresh();
+</script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");</script>
+</body>
+</html>
